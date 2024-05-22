@@ -1,0 +1,6 @@
+["core"]
+    remote = "my_storage"
+['remote "my_storage"']
+    url = "s3://pave-sokolov"
+    use_ssl = "false"
+    endpointurl = "http://194.180.188.67:9020"

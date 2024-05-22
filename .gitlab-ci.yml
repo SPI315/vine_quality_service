@@ -1,0 +1,71 @@
+lint:
+  image: python:3.10.9
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - python -m venv .venv
+    - .venv/bin/pip install -U pip setuptools
+    - .venv/bin/pip install -r requirements.txt
+  script:
+    - source .venv/bin/activate
+    - .venv/bin/pip install pyproject-flake8
+    - pflake8 --config pyproject.toml
+  cache:
+    key:
+      files:
+        - "requirements.txt"
+      prefix: venv
+    paths:
+      - .venv
+  allow_failure: true
+  needs: []
+
+dvc-test:
+  image: python:3.10.9
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - apt-get update
+    - apt install curl -y
+    - curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/minio-binaries/mc
+    - chmod +x $HOME/minio-binaries/mc
+    - export PATH=$PATH:$HOME/minio-binaries/
+    - mc alias set localname $MINIO_URL $ACCESS_KEY $SECRET_KEY
+  script:
+    - mc find localname/$BUCKET_NAME/$FILE_PATH --name "$FILE_NAME_FROM_HASH"
+  cache:
+    key:
+      files:
+        - "requirements.txt"
+      prefix: venv
+    paths:
+      - .venv
+  needs: 
+  - lint
+
+
+unit-test:
+  image: python:3.10.9
+  stage: test
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - python -m venv .venv
+    - .venv/bin/pip install -U pip setuptools
+    - .venv/bin/pip install -r requirements.txt
+  script:
+    - source .venv/bin/activate
+    - dvc remote modify my_storage access_key_id "$ACCESS_KEY"
+    - dvc remote modify my_storage secret_access_key "$SECRET_KEY"
+    - pytest --pyargs tests/unit
+  cache:
+    key:
+      files:
+        - "requirements.txt"
+      prefix: venv
+    paths:
+      - .venv
+  needs:
+    - dvc-test
